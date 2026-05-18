@@ -200,6 +200,12 @@ srcpy/
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 创建 Pull Request
 
+## 🙏 致谢
+
+本项目是 [Page Assist](https://github.com/n4ze3m/page-assist) 浏览器插件的 Python 重写版本。原项目提供了一个优秀的本地 AI 浏览器助手，本项目将其核心能力移植到 Python 生态，以支持更灵活的部署和使用方式。
+
+感谢 [@n4ze3m](https://github.com/n4ze3m) 和所有原项目贡献者的出色工作！
+
 ## 📜 License
 
 本项目基于 MIT License 开源，详见 [LICENSE](LICENSE) 文件。
