@@ -6,8 +6,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/page-assist.git
-cd page-assist/srcpy
+git clone https://github.com/mtk5wj6wyh-collab/page-assist-python.git
+cd page-assist-python
 
 # 创建虚拟环境
 python -m venv venv

@@ -35,8 +35,8 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/page-assist.git
-cd page-assist/srcpy
+git clone https://github.com/mtk5wj6wyh-collab/page-assist-python.git
+cd page-assist-python
 ```
 
 ### 2. 安装依赖
