@@ -17,7 +17,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🤖 **多 AI 模型支持** | Ollama、OpenAI、Claude、Gemini、Groq、DeepSeek、Mistral、Moonshot 共 8 个提供商 |
+| 🤖 **多 AI 模型支持** | Ollama、OpenAI、Claude、Gemini、Groq、DeepSeek、Mistral、Moonshot、Xiaomi MiMo 共 9 个提供商 |
 | 📚 **RAG 知识库** | 上传 PDF/Word/HTML/TXT 文档，构建私有向量知识库 |
 | 🔍 **联网搜索** | DuckDuckGo、Tavily、Brave、SearXNG、Bing 多种搜索后端 |
 | 🗣️ **语音合成** | Browser TTS、ElevenLabs、OpenAI TTS、Edge TTS |
@@ -189,6 +189,7 @@ srcpy/
 | DeepSeek | ✅ 需要 | ❌ |
 | Mistral | ✅ 需要 | ❌ |
 | Moonshot (Kimi) | ✅ 需要 | ❌ |
+| Xiaomi MiMo | ✅ 需要 | ❌ |
 
 ## 🤝 贡献
 

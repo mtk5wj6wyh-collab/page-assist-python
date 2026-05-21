@@ -44,9 +44,20 @@ class AIProviderSettings(BaseModel):
     google_api_key: Optional[str] = None
     google_model: str = "gemini-pro"
     groq_api_key: Optional[str] = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "mixtral-8x7b-32768"
     deepseek_api_key: Optional[str] = None
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
+    deepseek_model: str = "deepseek-chat"
     mistral_api_key: Optional[str] = None
+    mistral_base_url: str = "https://api.mistral.ai/v1"
+    mistral_model: str = "mistral-large-latest"
     moonshot_api_key: Optional[str] = None
+    moonshot_base_url: str = "https://api.moonshot.cn/v1"
+    moonshot_model: str = "moonshot-v1-8k"
+    mimo_api_key: Optional[str] = None
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
+    mimo_model: str = "mimo-v2.5-pro"
     default_provider: str = "ollama"
 
 
@@ -137,6 +148,7 @@ AI_PROVIDERS = {
     "deepseek": {"name": "DeepSeek", "models": ["deepseek-chat"], "requires_api_key": True},
     "mistral": {"name": "Mistral", "models": ["mistral-large-latest", "mistral-medium-latest"], "requires_api_key": True},
     "moonshot": {"name": "Moonshot (Kimi)", "models": ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"], "requires_api_key": True},
+    "mimo": {"name": "Xiaomi MiMo", "models": ["mimo-v2.5-pro", "mimo-v2-flash"], "requires_api_key": True},
 }
 
 SEARCH_PROVIDERS = {

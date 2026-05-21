@@ -390,6 +390,8 @@ async def get_provider_models(provider: str):
     try:
         models = await ai_provider.get_models()
         return {"models": models}
+    except Exception as e:
+        return {"error": f"无法获取模型列表: {str(e)}", "hint": "请检查 API Key 和网络连接，或手动配置模型名称"}
     finally:
         await ai_provider.close()
 

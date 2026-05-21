@@ -30,9 +30,20 @@ def _sync_to_settings(key: str, value):
         "AI__GOOGLE_API_KEY": ("ai", "google_api_key"),
         "AI__GOOGLE_MODEL": ("ai", "google_model"),
         "AI__GROQ_API_KEY": ("ai", "groq_api_key"),
+        "AI__GROQ_BASE_URL": ("ai", "groq_base_url"),
+        "AI__GROQ_MODEL": ("ai", "groq_model"),
         "AI__DEEPSEEK_API_KEY": ("ai", "deepseek_api_key"),
+        "AI__DEEPSEEK_BASE_URL": ("ai", "deepseek_base_url"),
+        "AI__DEEPSEEK_MODEL": ("ai", "deepseek_model"),
         "AI__MISTRAL_API_KEY": ("ai", "mistral_api_key"),
+        "AI__MISTRAL_BASE_URL": ("ai", "mistral_base_url"),
+        "AI__MISTRAL_MODEL": ("ai", "mistral_model"),
         "AI__MOONSHOT_API_KEY": ("ai", "moonshot_api_key"),
+        "AI__MOONSHOT_BASE_URL": ("ai", "moonshot_base_url"),
+        "AI__MOONSHOT_MODEL": ("ai", "moonshot_model"),
+        "AI__MIMO_API_KEY": ("ai", "mimo_api_key"),
+        "AI__MIMO_BASE_URL": ("ai", "mimo_base_url"),
+        "AI__MIMO_MODEL": ("ai", "mimo_model"),
         "AI__DEFAULT_PROVIDER": ("ai", "default_provider"),
         "SEARCH__SEARCH_ENABLED": ("search", "search_enabled"),
         "SEARCH__SEARCH_PROVIDER": ("search", "search_provider"),
@@ -113,6 +124,24 @@ def render_settings_page():
             if st.button("测试连接", key="test_ollama"):
                 st.info("连接测试功能需要后端服务支持")
 
+        # 辅助函数：获取模型列表
+        def _fetch_models(provider_name: str, provider_class_name: str, api_key: str, **kwargs):
+            if not api_key:
+                st.warning(f"请先输入 {provider_name} API Key")
+                return
+            try:
+                from services import ai_provider as ap
+                import asyncio
+                provider_cls = getattr(ap, provider_class_name)
+                provider = provider_cls(api_key=api_key, **kwargs)
+                models = asyncio.run(provider.get_models())
+                st.session_state[f"{provider_name.lower()}_models"] = models
+                st.session_state[f"{provider_name.lower()}_fetch_failed"] = False
+                st.success(f"✅ 获取到 {len(models)} 个模型")
+            except Exception as e:
+                st.session_state[f"{provider_name.lower()}_fetch_failed"] = True
+                st.warning(f"⚠️ 无法自动获取模型列表，请检查 API Key 和网络连接，或直接在下方手动输入模型名称")
+
         # OpenAI设置
         with st.expander("🌐 OpenAI"):
             openai_key = st.text_input(
@@ -128,11 +157,13 @@ def render_settings_page():
                 help="OpenAI API端点",
                 key="openai_base_url"
             )
-            openai_model = st.selectbox(
-                "默认模型",
-                AI_PROVIDERS.get("openai", {}).get("models", ["gpt-4"]),
-                key="openai_model"
-            )
+            if st.button("获取模型列表", key="get_openai_models"):
+                _fetch_models("OpenAI", "OpenAIProvider", openai_key, base_url=openai_url)
+            if st.session_state.get("openai_fetch_failed"):
+                openai_model = st.text_input("模型名称（手动输入）", value=settings.ai.openai_model, key="openai_model", placeholder="例如: gpt-4, gpt-3.5-turbo")
+            else:
+                openai_models = st.session_state.get("openai_models", AI_PROVIDERS.get("openai", {}).get("models", ["gpt-4"]))
+                openai_model = st.selectbox("默认模型", openai_models, key="openai_model")
 
         # Anthropic设置
         with st.expander("🧠 Anthropic (Claude)"):
@@ -156,18 +187,73 @@ def render_settings_page():
                 type="password",
                 key="google_api_key"
             )
-            google_model = st.selectbox(
-                "默认模型",
-                AI_PROVIDERS.get("google", {}).get("models", ["gemini-pro"]),
-                key="google_model"
-            )
+            if st.button("获取模型列表", key="get_google_models"):
+                _fetch_models("Google", "GoogleProvider", google_key)
+            if st.session_state.get("google_fetch_failed"):
+                google_model = st.text_input("模型名称（手动输入）", value=settings.ai.google_model, key="google_model", placeholder="例如: gemini-pro, gemini-1.5-pro")
+            else:
+                google_models = st.session_state.get("google_models", AI_PROVIDERS.get("google", {}).get("models", ["gemini-pro"]))
+                google_model = st.selectbox("默认模型", google_models, key="google_model")
 
-        # 其他提供商
-        with st.expander("📦 其他提供商"):
-            groq_key = st.text_input("Groq API Key", value=settings.ai.groq_api_key or "", type="password", key="groq_key")
-            deepseek_key = st.text_input("DeepSeek API Key", value=settings.ai.deepseek_api_key or "", type="password", key="deepseek_key")
-            mistral_key = st.text_input("Mistral API Key", value=settings.ai.mistral_api_key or "", type="password", key="mistral_key")
-            moonshot_key = st.text_input("Moonshot API Key", value=settings.ai.moonshot_api_key or "", type="password", key="moonshot_key")
+        # Groq设置
+        with st.expander("⚡ Groq"):
+            groq_key = st.text_input("API Key", value=settings.ai.groq_api_key or "", type="password", key="groq_key")
+            groq_url = st.text_input("API地址", value=settings.ai.groq_base_url, key="groq_base_url")
+            if st.button("获取模型列表", key="get_groq_models"):
+                _fetch_models("Groq", "GroqProvider", groq_key, base_url=groq_url)
+            if st.session_state.get("groq_fetch_failed"):
+                groq_model = st.text_input("模型名称（手动输入）", value=settings.ai.groq_model, key="groq_model", placeholder="例如: mixtral-8x7b-32768, llama2-70b-4096")
+            else:
+                groq_models = st.session_state.get("groq_models", AI_PROVIDERS.get("groq", {}).get("models", ["mixtral-8x7b-32768"]))
+                groq_model = st.selectbox("默认模型", groq_models, key="groq_model")
+
+        # DeepSeek设置
+        with st.expander("🔍 DeepSeek"):
+            deepseek_key = st.text_input("API Key", value=settings.ai.deepseek_api_key or "", type="password", key="deepseek_key")
+            deepseek_url = st.text_input("API地址", value=settings.ai.deepseek_base_url, key="deepseek_base_url")
+            if st.button("获取模型列表", key="get_deepseek_models"):
+                _fetch_models("DeepSeek", "DeepSeekProvider", deepseek_key, base_url=deepseek_url)
+            if st.session_state.get("deepseek_fetch_failed"):
+                deepseek_model = st.text_input("模型名称（手动输入）", value=settings.ai.deepseek_model, key="deepseek_model", placeholder="例如: deepseek-chat, deepseek-reasoner")
+            else:
+                deepseek_models = st.session_state.get("deepseek_models", AI_PROVIDERS.get("deepseek", {}).get("models", ["deepseek-chat"]))
+                deepseek_model = st.selectbox("默认模型", deepseek_models, key="deepseek_model")
+
+        # Mistral设置
+        with st.expander("🌬️ Mistral"):
+            mistral_key = st.text_input("API Key", value=settings.ai.mistral_api_key or "", type="password", key="mistral_key")
+            mistral_url = st.text_input("API地址", value=settings.ai.mistral_base_url, key="mistral_base_url")
+            if st.button("获取模型列表", key="get_mistral_models"):
+                _fetch_models("Mistral", "MistralProvider", mistral_key, base_url=mistral_url)
+            if st.session_state.get("mistral_fetch_failed"):
+                mistral_model = st.text_input("模型名称（手动输入）", value=settings.ai.mistral_model, key="mistral_model", placeholder="例如: mistral-large-latest, mistral-small-latest")
+            else:
+                mistral_models = st.session_state.get("mistral_models", AI_PROVIDERS.get("mistral", {}).get("models", ["mistral-large-latest"]))
+                mistral_model = st.selectbox("默认模型", mistral_models, key="mistral_model")
+
+        # Moonshot设置
+        with st.expander("🌙 Moonshot (Kimi)"):
+            moonshot_key = st.text_input("API Key", value=settings.ai.moonshot_api_key or "", type="password", key="moonshot_key")
+            moonshot_url = st.text_input("API地址", value=settings.ai.moonshot_base_url, key="moonshot_base_url")
+            if st.button("获取模型列表", key="get_moonshot_models"):
+                _fetch_models("Moonshot", "MoonshotProvider", moonshot_key, base_url=moonshot_url)
+            if st.session_state.get("moonshot_fetch_failed"):
+                moonshot_model = st.text_input("模型名称（手动输入）", value=settings.ai.moonshot_model, key="moonshot_model", placeholder="例如: moonshot-v1-8k, moonshot-v1-32k")
+            else:
+                moonshot_models = st.session_state.get("moonshot_models", AI_PROVIDERS.get("moonshot", {}).get("models", ["moonshot-v1-8k"]))
+                moonshot_model = st.selectbox("默认模型", moonshot_models, key="moonshot_model")
+
+        # MiMo设置
+        with st.expander("🤖 Xiaomi MiMo"):
+            mimo_key = st.text_input("API Key", value=settings.ai.mimo_api_key or "", type="password", key="mimo_key")
+            mimo_url = st.text_input("API地址", value=settings.ai.mimo_base_url, key="mimo_base_url")
+            if st.button("获取模型列表", key="get_mimo_models"):
+                _fetch_models("MiMo", "MiMoProvider", mimo_key, base_url=mimo_url)
+            if st.session_state.get("mimo_fetch_failed"):
+                mimo_model = st.text_input("模型名称（手动输入）", value=settings.ai.mimo_model, key="mimo_model", placeholder="例如: mimo-v2.5-pro, mimo-v2-flash")
+            else:
+                mimo_models = st.session_state.get("mimo_models", AI_PROVIDERS.get("mimo", {}).get("models", ["mimo-v2.5-pro"]))
+                mimo_model = st.selectbox("默认模型", mimo_models, key="mimo_model")
 
         # 默认提供商
         st.divider()
@@ -189,9 +275,20 @@ def render_settings_page():
             _save_env("AI__GOOGLE_API_KEY", _get_st("google_api_key", ""))
             _save_env("AI__GOOGLE_MODEL", _get_st("google_model", settings.ai.google_model))
             _save_env("AI__GROQ_API_KEY", _get_st("groq_key", ""))
+            _save_env("AI__GROQ_BASE_URL", _get_st("groq_base_url", settings.ai.groq_base_url))
+            _save_env("AI__GROQ_MODEL", _get_st("groq_model", settings.ai.groq_model))
             _save_env("AI__DEEPSEEK_API_KEY", _get_st("deepseek_key", ""))
+            _save_env("AI__DEEPSEEK_BASE_URL", _get_st("deepseek_base_url", settings.ai.deepseek_base_url))
+            _save_env("AI__DEEPSEEK_MODEL", _get_st("deepseek_model", settings.ai.deepseek_model))
             _save_env("AI__MISTRAL_API_KEY", _get_st("mistral_key", ""))
+            _save_env("AI__MISTRAL_BASE_URL", _get_st("mistral_base_url", settings.ai.mistral_base_url))
+            _save_env("AI__MISTRAL_MODEL", _get_st("mistral_model", settings.ai.mistral_model))
             _save_env("AI__MOONSHOT_API_KEY", _get_st("moonshot_key", ""))
+            _save_env("AI__MOONSHOT_BASE_URL", _get_st("moonshot_base_url", settings.ai.moonshot_base_url))
+            _save_env("AI__MOONSHOT_MODEL", _get_st("moonshot_model", settings.ai.moonshot_model))
+            _save_env("AI__MIMO_API_KEY", _get_st("mimo_key", ""))
+            _save_env("AI__MIMO_BASE_URL", _get_st("mimo_base_url", settings.ai.mimo_base_url))
+            _save_env("AI__MIMO_MODEL", _get_st("mimo_model", settings.ai.mimo_model))
             _save_env("AI__DEFAULT_PROVIDER", _get_st("default_provider", settings.ai.default_provider))
             st.success("✅ AI 设置已保存到 .env 文件")
 

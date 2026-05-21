@@ -80,14 +80,14 @@ class OllamaProvider(BaseAIProvider):
     
     async def get_models(self) -> List[str]:
         """获取可用模型列表"""
-        try:
-            url = f"{self.base_url}/api/tags"
-            response = await self.client.get(url)
-            response.raise_for_status()
-            data = response.json()
-            return [m["name"] for m in data.get("models", [])]
-        except Exception:
-            return [self.model]
+        url = f"{self.base_url}/api/tags"
+        response = await self.client.get(url)
+        response.raise_for_status()
+        data = response.json()
+        models = [m["name"] for m in data.get("models", [])]
+        if not models:
+            raise ValueError("Ollama 未返回任何模型，请检查 Ollama 服务是否运行")
+        return models
     
     async def generate_embedding(self, text: str) -> List[float]:
         """生成文本嵌入"""
@@ -164,13 +164,13 @@ class OpenAIProvider(BaseAIProvider):
     async def get_models(self) -> List[str]:
         """获取可用模型列表"""
         url = f"{self.base_url}/models"
-        try:
-            response = await self.client.get(url, headers=self._get_headers())
-            response.raise_for_status()
-            data = response.json()
-            return [m["id"] for m in data["data"]]
-        except Exception:
-            return ["gpt-4", "gpt-3.5-turbo"]
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        models = [m["id"] for m in data["data"]]
+        if not models:
+            raise ValueError("API 返回的模型列表为空，请检查 API Key 是否正确")
+        return models
     
     async def generate_embedding(self, text: str) -> List[float]:
         """生成文本嵌入"""
@@ -303,112 +303,136 @@ class GoogleProvider(BaseAIProvider):
                         continue
     
     async def get_models(self) -> List[str]:
-        """获取可用模型"""
-        return ["gemini-pro", "gemini-pro-vision", "gemini-1.5-pro"]
-    
-    async def close(self):
-        await self.client.aclose()
-
-
-class GroqProvider(BaseAIProvider):
-    """Groq高速推理提供商"""
-    
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key or settings.ai.groq_api_key
-        self.base_url = "https://api.groq.com/openai/v1"
-        self.client = httpx.AsyncClient(timeout=120.0)
-    
-    def _get_headers(self) -> Dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-    
-    async def chat(self, messages: List[Dict], **kwargs) -> str:
-        """发送聊天请求"""
-        url = f"{self.base_url}/chat/completions"
-        payload = {
-            "model": kwargs.get("model", "mixtral-8x7b-32768"),
-            "messages": messages
-        }
-        if "temperature" in kwargs:
-            payload["temperature"] = kwargs["temperature"]
-        
-        response = await self.client.post(url, json=payload, headers=self._get_headers())
+        """获取可用模型（通过API动态获取）"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
+        response = await self.client.get(url)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]
-    
-    async def chat_stream(self, messages: List[Dict], **kwargs) -> AsyncIterator[str]:
-        """流式聊天"""
-        url = f"{self.base_url}/chat/completions"
-        payload = {
-            "model": kwargs.get("model", "mixtral-8x7b-32768"),
-            "messages": messages,
-            "stream": True
-        }
-        if "temperature" in kwargs:
-            payload["temperature"] = kwargs["temperature"]
-        
-        async with self.client.stream("POST", url, json=payload, headers=self._get_headers()) as response:
-            async for line in response.aiter_lines():
-                if line and line.startswith("data: "):
-                    if line.strip() == "data: [DONE]":
-                        break
-                    try:
-                        data = json.loads(line[6:])
-                        if content := data["choices"][0]["delta"].get("content"):
-                            yield content
-                    except json.JSONDecodeError:
-                        continue
-    
-    async def get_models(self) -> List[str]:
-        return ["mixtral-8x7b-32768", "llama2-70b-4096"]
+        models = [m["name"].replace("models/", "") for m in data.get("models", [])]
+        if not models:
+            raise ValueError("API 返回的模型列表为空，请检查 API Key 是否正确")
+        return models
     
     async def close(self):
         await self.client.aclose()
+
+
+class GroqProvider(OpenAIProvider):
+    """Groq高速推理提供商 (兼容OpenAI API)"""
+
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+        super().__init__(
+            api_key=api_key or settings.ai.groq_api_key,
+            base_url=base_url or settings.ai.groq_base_url,
+            model=model or settings.ai.groq_model
+        )
+
+    async def get_models(self) -> List[str]:
+        """获取可用模型列表"""
+        url = f"{self.base_url}/models"
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data:
+            models = [m["id"] for m in data["data"]]
+            if not models:
+                raise ValueError("API 返回的模型列表为空")
+            return models
+        raise ValueError("API 响应格式异常，请检查 API 地址是否正确")
 
 
 class DeepSeekProvider(OpenAIProvider):
     """DeepSeek AI提供商 (兼容OpenAI API)"""
 
-    def __init__(self, api_key: str = None, model: str = None):
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
         super().__init__(
             api_key=api_key or settings.ai.deepseek_api_key,
-            base_url="https://api.deepseek.com",
-            model=model or "deepseek-chat"
+            base_url=base_url or settings.ai.deepseek_base_url,
+            model=model or settings.ai.deepseek_model
         )
 
     async def get_models(self) -> List[str]:
-        return ["deepseek-chat", "deepseek-reasoner"]
+        """获取可用模型列表"""
+        url = f"{self.base_url}/models"
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data:
+            models = [m["id"] for m in data["data"]]
+            if not models:
+                raise ValueError("API 返回的模型列表为空")
+            return models
+        raise ValueError("API 响应格式异常，请检查 API 地址是否正确")
 
 
 class MistralProvider(OpenAIProvider):
     """Mistral AI提供商 (兼容OpenAI API)"""
 
-    def __init__(self, api_key: str = None, model: str = None):
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
         super().__init__(
             api_key=api_key or settings.ai.mistral_api_key,
-            base_url="https://api.mistral.ai/v1",
-            model=model or "mistral-large-latest"
+            base_url=base_url or settings.ai.mistral_base_url,
+            model=model or settings.ai.mistral_model
         )
 
     async def get_models(self) -> List[str]:
-        return ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"]
+        """获取可用模型列表"""
+        url = f"{self.base_url}/models"
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data:
+            models = [m["id"] for m in data["data"]]
+            if not models:
+                raise ValueError("API 返回的模型列表为空")
+            return models
+        raise ValueError("API 响应格式异常，请检查 API 地址是否正确")
 
 
 class MoonshotProvider(OpenAIProvider):
     """Moonshot (Kimi) AI提供商 (兼容OpenAI API)"""
 
-    def __init__(self, api_key: str = None, model: str = None):
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
         super().__init__(
             api_key=api_key or settings.ai.moonshot_api_key,
-            base_url="https://api.moonshot.cn/v1",
-            model=model or "moonshot-v1-8k"
+            base_url=base_url or settings.ai.moonshot_base_url,
+            model=model or settings.ai.moonshot_model
         )
 
     async def get_models(self) -> List[str]:
-        return ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"]
+        """获取可用模型列表"""
+        url = f"{self.base_url}/models"
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data:
+            models = [m["id"] for m in data["data"]]
+            if not models:
+                raise ValueError("API 返回的模型列表为空")
+            return models
+        raise ValueError("API 响应格式异常，请检查 API 地址是否正确")
+
+
+class MiMoProvider(OpenAIProvider):
+    """Xiaomi MiMo AI提供商 (兼容OpenAI API)"""
+
+    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+        super().__init__(
+            api_key=api_key or settings.ai.mimo_api_key,
+            base_url=base_url or settings.ai.mimo_base_url,
+            model=model or settings.ai.mimo_model
+        )
+
+    async def get_models(self) -> List[str]:
+        """获取可用模型列表（通过API动态获取）"""
+        url = f"{self.base_url}/models"
+        response = await self.client.get(url, headers=self._get_headers())
+        response.raise_for_status()
+        data = response.json()
+        models = [m["id"] for m in data.get("data", [])]
+        if not models:
+            raise ValueError("API 返回的模型列表为空，请检查 API Key 是否正确")
+        return models
 
 
 # 提供商工厂
@@ -424,6 +448,7 @@ class AIProviderFactory:
         "deepseek": DeepSeekProvider,
         "mistral": MistralProvider,
         "moonshot": MoonshotProvider,
+        "mimo": MiMoProvider,
     }
     
     @classmethod
