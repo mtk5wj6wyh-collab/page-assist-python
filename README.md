@@ -206,6 +206,24 @@ srcpy/
 
 感谢 [@n4ze3m](https://github.com/n4ze3m) 和所有原项目贡献者的出色工作！
 
+### 特别赞助
+
+<p align="center">
+  <a href="https://mimo.mi.com/" target="_blank">
+    <img src="https://cdn.cnbj0.fds.api.mi-img.com/b2c-shopapi-pms/pms_1621497797.71927021.png" alt="Xiaomi MiMo 大模型" width="120">
+  </a>
+</p>
+
+<p align="center">
+  <b>感谢 <a href="https://mimo.mi.com/">Xiaomi MiMo 大模型</a> 慷慨赞助 7 亿 Token！</b>
+</p>
+
+<p align="center">
+  小米大模型的大力支持为本项目的 AI 能力提供了强有力的资源保障，<br>
+  使得开发者和用户能够更自由地体验和探索大语言模型的无限可能。<br>
+  我们对小米大模型的开放精神和对开源社区的支持表示衷心的感谢！
+</p>
+
 ## 📜 License
 
 本项目基于 MIT License 开源，详见 [LICENSE](LICENSE) 文件。
