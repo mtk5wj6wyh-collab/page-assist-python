@@ -18,6 +18,7 @@ from services.rag import RAGService
 from services.search import SearchService
 from services.tts import TTSService
 from services.prompt_manager import PromptManager
+from services.wechat import WeChatDownloader, WatermarkRemover, VideoGenerator
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -394,6 +395,113 @@ async def get_provider_models(provider: str):
         return {"error": f"无法获取模型列表: {str(e)}", "hint": "请检查 API Key 和网络连接，或手动配置模型名称"}
     finally:
         await ai_provider.close()
+
+
+# ========== 微信工具 ==========
+
+class WeChatDownloadRequest(BaseModel):
+    url: str
+    output_dir: Optional[str] = None
+
+class WeChatWatermarkRequest(BaseModel):
+    article_dir: str
+    preset: str = "medium"
+    force: bool = False
+
+class WeChatVideoRequest(BaseModel):
+    article_name: str
+    duration: float = 3.0
+    fps: int = 24
+    transition: str = "fade"
+    transition_dur: float = 0.5
+    music_path: Optional[str] = None
+    title: Optional[str] = None
+    resolution: Optional[str] = None
+
+
+class WeChatVideoProRequest(BaseModel):
+    article_name: str
+    script_path: Optional[str] = None
+    voice: str = "zh-CN-YunxiNeural"
+    voice_rate: str = "+0%"
+    music_path: Optional[str] = None
+    music_volume: float = 0.3
+    font_size: int = 36
+    fps: int = 24
+    resolution: Optional[str] = None
+
+
+@app.get("/api/wechat/articles")
+async def get_wechat_articles():
+    """列出已下载的微信文章"""
+    downloader = WeChatDownloader()
+    return {"articles": downloader.list_articles()}
+
+
+@app.get("/api/wechat/status/{article_name}")
+async def get_wechat_status(article_name: str):
+    """查看文章去水印处理进度"""
+    remover = WatermarkRemover()
+    return remover.get_status(article_name)
+
+
+@app.post("/api/wechat/download")
+async def download_wechat_article(request: WeChatDownloadRequest):
+    """下载微信文章图片"""
+    downloader = WeChatDownloader()
+    result = downloader.download_article(request.url, request.output_dir)
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+
+@app.post("/api/wechat/watermark")
+async def remove_watermark(request: WeChatWatermarkRequest):
+    """批量去水印"""
+    remover = WatermarkRemover()
+    result = remover.remove_folder(request.article_dir, request.preset, request.force)
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+
+@app.post("/api/wechat/video")
+async def make_video(request: WeChatVideoRequest):
+    """生成短视频"""
+    gen = VideoGenerator()
+    result = gen.make_video(
+        article_name=request.article_name,
+        duration=request.duration,
+        fps=request.fps,
+        transition=request.transition,
+        transition_dur=request.transition_dur,
+        music_path=request.music_path,
+        title=request.title,
+        resolution=request.resolution,
+    )
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
+
+
+@app.post("/api/wechat/video/pro")
+async def make_video_pro(request: WeChatVideoProRequest):
+    """生成专业版视频（剧本+配音+字幕+背景音乐）"""
+    gen = VideoGenerator()
+    result = gen.make_video_pro(
+        article_name=request.article_name,
+        script_path=request.script_path,
+        voice=request.voice,
+        voice_rate=request.voice_rate,
+        music_path=request.music_path,
+        music_volume=request.music_volume,
+        font_size=request.font_size,
+        fps=request.fps,
+        resolution=request.resolution,
+    )
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result["message"])
+    return result
 
 
 # ========== 运行服务器 ==========

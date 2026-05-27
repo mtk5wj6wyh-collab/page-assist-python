@@ -37,6 +37,7 @@ def main():
         st.page_link("pages/02_知识库.py", label="📚 知识库", icon="📚")
         st.page_link("pages/03_提示词.py", label="📝 提示词", icon="📝")
         st.page_link("pages/05_工具.py", label="🛠️ 工具", icon="🛠️")
+        st.page_link("pages/06_微信工具.py", label="📱 微信工具", icon="📱")
         
         st.divider()
         st.page_link("pages/04_设置.py", label="⚙️ 设置", icon="⚙️")
@@ -91,6 +92,14 @@ def main():
         st.write("扩展功能")
         if st.button("打开工具", key="quick_tools"):
             st.switch_page("pages/05_工具.py")
+
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        st.info("📱")
+        st.markdown("### 微信工具")
+        st.write("下载、去水印、视频")
+        if st.button("打开微信工具", key="quick_wechat"):
+            st.switch_page("pages/06_微信工具.py")
     
     st.divider()
     

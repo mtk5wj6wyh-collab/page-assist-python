@@ -82,6 +82,7 @@ def main():
             easy_drag=False,
         )
         webview.start(
+            gui="edgechromium",
             private_mode=False,
             storage_path=str(ROOT_DIR / ".webview_cache"),
         )
