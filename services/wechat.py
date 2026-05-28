@@ -160,7 +160,9 @@ class VideoGenerator:
         from PIL import Image
 
         article_dir = TOOLS_DIR / "wechat_articles" / article_name
-        images_dir = article_dir / "images"
+        images_new = article_dir / "images_new"
+        images_old = article_dir / "images"
+        images_dir = images_new if images_new.is_dir() else images_old
         content_file = article_dir / "content.txt"
         script_file = article_dir / "script.txt"
         filtered_file = article_dir / "filtered_images.txt"
