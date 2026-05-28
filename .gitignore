@@ -53,3 +53,7 @@ temp/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Playwright 截图/临时文件
+*.png
+.playwright-cli/
