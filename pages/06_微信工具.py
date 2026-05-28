@@ -174,6 +174,13 @@ def render_wechat_page():
             if video_mode == "专业版（剧本+配音+字幕）":
                 st.markdown("##### 专业版设置")
 
+                # 分辨率选择（AI 筛选图片时需要）
+                resolution = st.selectbox(
+                    "目标分辨率",
+                    ["1920x1080", "1280x720", "1080x1080", "原始"],
+                    key="vid_res_pro",
+                )
+
                 # 剧本来源选择
                 script_source = st.radio(
                     "剧本来源",
@@ -185,28 +192,53 @@ def render_wechat_page():
                 script_path = None
                 script_file = None
                 if script_source == "AI 自动生成":
-                    st.caption("AI 将分析文章图片和文字内容，为每张图片生成一句旁白")
+                    st.caption("AI 将筛选广告/无意义图片，按分辨率过滤变形图，然后生成旁白")
                     if st.button("生成剧本", key="btn_gen_script"):
-                        with st.spinner("AI 正在分析图片并生成剧本..."):
+                        with st.spinner("AI 正在筛选图片并生成剧本（可能需要 1-2 分钟）..."):
                             gen = VideoGenerator()
-                            result = gen.generate_script(selected_video)
+                            result = gen.generate_script(selected_video, resolution=resolution)
                         if result["status"] == "ok":
-                            st.success(f"剧本生成完成！共 {result['lines']} 句")
-                            script_path = result["script_path"]
-                            # 显示生成的剧本预览
-                            with open(script_path, "r", encoding="utf-8") as f:
-                                script_content = f.read()
-                            with st.expander("预览剧本", expanded=True):
-                                st.text_area("script_preview", script_content, height=150, disabled=True, key="script_preview")
+                            st.session_state["gen_script_result"] = result
                         else:
                             st.error(f"生成失败: {result['message']}")
+
+                    # 显示生成结果（按钮点击后持久化，或已有旧结果）
+                    result = st.session_state.get("gen_script_result")
+                    if result and result.get("status") == "ok":
+                        cols = st.columns(4)
+                        cols[0].metric("原图", result["images_total"])
+                        cols[1].metric("尺寸过滤", result["images_filtered_size"])
+                        cols[2].metric("AI 筛选", result["images_filtered_ai"])
+                        cols[3].metric("最终使用", result["images_final"])
+                        st.success(f"剧本生成完成！共 {result['lines']} 句")
+
+                        script_path = result["script_path"]
+                        if Path(script_path).exists():
+                            script_content = Path(script_path).read_text(encoding="utf-8")
+                            st.subheader("剧本预览")
+                            st.text_area("script_preview_main", script_content, height=150, disabled=True, key="script_preview_main")
+
+                        detail_path = result.get("detail_path")
+                        if detail_path and Path(detail_path).exists():
+                            with st.expander("剧本详情（图片↔旁白对应关系）"):
+                                st.text_area("script_detail_main", Path(detail_path).read_text(encoding="utf-8"), height=200, disabled=True, key="script_detail_main")
+
+                        meta_path = result.get("meta_path")
+                        if meta_path and Path(meta_path).exists():
+                            with st.expander("图片元数据"):
+                                st.text_area("images_meta_main", Path(meta_path).read_text(encoding="utf-8"), height=200, disabled=True, key="images_meta_main")
+
+                        selected_dir = result.get("selected_dir")
+                        if selected_dir and Path(selected_dir).exists():
+                            selected_imgs = sorted(Path(selected_dir).glob("*"))
+                            st.caption(f"最终选择的图片已保存到: {selected_dir} ({len(selected_imgs)} 张)")
                     else:
-                        # 尝试使用已生成的 script.txt
+                        # 没有生成结果，检查是否有已存在的 script.txt
                         existing_script = TOOLS_DIR / "wechat_articles" / selected_video / "script.txt"
                         if existing_script.exists():
                             script_path = str(existing_script)
-                            with st.expander("已生成的剧本（点击展开）", expanded=False):
-                                st.text_area("script_preview", existing_script.read_text(encoding="utf-8"), height=150, disabled=True, key="script_preview")
+                            with st.expander("已生成的剧本（点击展开）"):
+                                st.text_area("script_preview_exist", existing_script.read_text(encoding="utf-8"), height=150, disabled=True, key="script_preview_exist")
                 else:
                     script_file = st.file_uploader(
                         "上传剧本文件（.txt，每行对应一张图片）",
@@ -235,12 +267,21 @@ def render_wechat_page():
                     font_size = st.slider("字幕字号", 20, 60, 36, key="vid_font_size")
                 with col2:
                     fps = st.selectbox("帧率", [24, 30, 60], index=0, key="vid_fps")
-                    resolution = st.selectbox(
-                        "分辨率",
-                        ["原始", "1920x1080", "1280x720", "1080x1080"],
-                        key="vid_res",
-                    )
                     music_volume = st.slider("背景音乐音量", 0.0, 1.0, 0.3, 0.1, key="vid_music_vol")
+
+                # 视觉特效
+                st.markdown("##### 视觉特效")
+                eff_col1, eff_col2, eff_col3, eff_col4, eff_col5 = st.columns(5)
+                with eff_col1:
+                    enable_enhance = st.checkbox("画质增强", value=True, key="eff_enh", help="自动提亮+锐化+色彩增强")
+                with eff_col2:
+                    enable_kenburns = st.checkbox("Ken Burns 动效", value=True, key="eff_kb", help="慢速缩放/平移，让静态图片有动感")
+                with eff_col3:
+                    enable_crossfade = st.checkbox("交叉淡入淡出", value=True, key="eff_cf", help="片段间平滑过渡")
+                with eff_col4:
+                    enable_vignette = st.checkbox("暗角效果", value=True, key="eff_vig", help="电影感边缘压暗")
+                with eff_col5:
+                    enable_lightleak = st.checkbox("暖色光效", value=False, key="eff_ll", help="右上角暖色光晕叠加")
 
                 music_file = st.file_uploader("背景音乐（可选）", type=["mp3", "wav", "m4a"], key="vid_music")
 
@@ -275,6 +316,11 @@ def render_wechat_page():
                             font_size=font_size,
                             fps=fps,
                             resolution=res,
+                            enable_enhance=enable_enhance,
+                            enable_kenburns=enable_kenburns,
+                            enable_crossfade=enable_crossfade,
+                            enable_vignette=enable_vignette,
+                            enable_lightleak=enable_lightleak,
                         )
 
                     if result["status"] == "ok":
